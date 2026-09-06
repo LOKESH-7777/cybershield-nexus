@@ -311,7 +311,9 @@
   </main>
 
   <script>
-    const API = 'http://localhost:8081/api';
+    // FIX: relative path instead of a hardcoded absolute localhost URL —
+    // works both locally and on a deployed domain (Render, etc.)
+    const API = '/api';
 
     if (localStorage.getItem('cs_token')) {
       window.location.href = '/dashboard.html';
@@ -355,7 +357,7 @@
         }));
         window.location.href = '/dashboard.html';
       } catch (err) {
-        errorText.textContent = 'Backend unavailable. Start Spring Boot on port 8081, then try again.';
+        errorText.textContent = 'Could not reach the server. Please check your connection and try again.';
         errorEl.classList.add('show');
       } finally {
         btn.disabled = false;

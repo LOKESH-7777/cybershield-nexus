@@ -3,7 +3,12 @@
  * All pages include this file first.
  */
 
-const API = 'http://localhost:8081/api';
+// FIX: relative path instead of a hardcoded absolute localhost URL.
+// The frontend is served BY this same Spring Boot app, so a relative
+// path always resolves to whatever host/port the browser is actually
+// on — works for localhost:8081 locally AND for a deployed domain
+// (e.g. Render, Railway, a real server) with zero code changes.
+const API = '/api';
 
 // ── Token management ───────────────────────────────────────────────
 function getToken()           { return localStorage.getItem('cs_token'); }
