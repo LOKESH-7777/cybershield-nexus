@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Load Balancers — CyberShield Nexus</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<aside class="sidebar">
+  <div class="sidebar-brand"><h1>CyberShield Nexus</h1><span>NEDI AI Cyber Command</span></div>
+  <nav class="sidebar-nav">
+    <div class="nav-section-label">Main</div>
+    <a href="/dashboard.html" class="nav-item"><span class="icon">📊</span> Dashboard</a>
+    <div class="nav-section-label">Assets</div>
+    <a href="/servers.html" class="nav-item"><span class="icon">🖥️</span> Servers</a>
+    <a href="/firewalls.html" class="nav-item"><span class="icon">🔥</span> Firewalls</a>
+    <a href="/loadbalancers.html" class="nav-item active"><span class="icon">⚖️</span> Load Balancers</a>
+    <a href="/licenses.html" class="nav-item"><span class="icon">📋</span> Licenses</a>
+    <a href="/hardware.html" class="nav-item"><span class="icon">⚙️</span> Hardware</a>
+    <div class="nav-section-label">Security</div>
+    <a href="/incidents.html" class="nav-item"><span class="icon">🚨</span> Incidents</a>
+    <a href="/risk.html" class="nav-item"><span class="icon">📈</span> Risk & Attack Path</a>
+    <a href="/audit-log.html" class="nav-item"><span class="icon">📜</span> Audit Log</a>
+    <a href="/users.html" class="nav-item"><span class="icon">👤</span> Users & Roles</a>
+    <div class="nav-section-label">Tools</div>
+    <a href="/phishing-detector.html" class="nav-item"><span class="icon">🎣</span> Phishing Detector</a>
+  </nav>
+  <div class="sidebar-footer"><button onclick="logout()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:12px;">⏏ Sign Out</button></div>
+</aside>
+<header class="topbar">
+  <span class="topbar-title">Load Balancer Management</span>
+  <div class="topbar-right">
+    <div class="topbar-user">
+      <div class="user-avatar" id="topbar-avatar">A</div>
+      <div><div style="font-weight:600;font-size:13px" id="topbar-username"></div>
+      <div style="font-size:10px;color:var(--text-muted)" id="topbar-role"></div></div>
+    </div>
+  </div>
+</header>
+<main class="main-content">
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h2 style="font-size:20px;font-weight:700">Load Balancers</h2>
+      <p style="color:var(--text-muted);font-size:13px;margin-top:2px">Traffic distribution algorithm, health checks, and backend server pools</p>
+    </div>
+    <button class="btn btn-primary" id="add-lb-btn" onclick="openAdd()">＋ Add Load Balancer</button>
+  </div>
+  <div class="card">
+    <div class="card-header"><span class="card-title" id="lb-count">Load Balancers</span></div>
+    <div class="table-wrapper">
+      <div id="loading"><div class="spinner"></div></div>
+      <table id="lb-table" style="display:none">
+        <thead><tr><th>Name</th><th>Virtual IP</th><th>Algorithm</th><th>Status</th><th>Health Check</th><th>Backends</th><th>Actions</th></tr></thead>
+        <tbody id="lb-body"></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<!-- Add/Edit Load Balancer modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-title">Add Load Balancer</span>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="lb-id">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group"><label class="form-label">Name *</label><input class="form-control" id="f-name" required></div>
+        <div class="form-group"><label class="form-label">Virtual IP *</label><input class="form-control" id="f-vip" required placeholder="10.0.0.100"></div>
+        <div class="form-group"><label class="form-label">Algorithm</label>
+          <select class="form-control" id="f-algorithm"><option>ROUND_ROBIN</option><option>LEAST_CONNECTIONS</option><option>IP_HASH</option><option>WEIGHTED</option></select></div>
+        <div class="form-group"><label class="form-label">Status</label>
+          <select class="form-control" id="f-status"><option>ACTIVE</option><option>INACTIVE</option><option>MAINTENANCE</option><option>DEGRADED</option></select></div>
+        <div class="form-group"><label class="form-label">Health Check Path</label><input class="form-control" id="f-healthpath" placeholder="/actuator/health"></div>
+        <div class="form-group"><label class="form-label">Check Interval (sec)</label><input class="form-control" id="f-interval" type="number" value="30"></div>
+        <div class="form-group" style="grid-column:1/-1"><label class="form-label">Notes</label><input class="form-control" id="f-notes"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="save()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Backend pool modal -->
+<div class="modal-overlay" id="backends-modal">
+  <div class="modal" style="max-width:700px">
+    <div class="modal-header">
+      <span class="modal-title" id="backends-modal-title">Backend Pool</span>
+      <button class="modal-close" onclick="closeBackendsModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="table-wrapper" style="margin-bottom:16px">
+        <table>
+          <thead><tr><th>Target Name</th><th>IP</th><th>Port</th><th>Weight</th><th>Health</th><th></th></tr></thead>
+          <tbody id="backends-body"></tbody>
+        </table>
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:14px">
+        <div style="font-size:13px;font-weight:600;margin-bottom:8px">Add Backend Target</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px">
+          <div class="form-group"><label class="form-label">Name *</label><input class="form-control" id="b-name" placeholder="NEDI-ERP-APP-01"></div>
+          <div class="form-group"><label class="form-label">IP</label><input class="form-control" id="b-ip" placeholder="10.0.2.11"></div>
+          <div class="form-group"><label class="form-label">Port</label><input class="form-control" id="b-port" type="number" value="80"></div>
+          <div class="form-group"><label class="form-label">Weight</label><input class="form-control" id="b-weight" type="number" value="1"></div>
+        </div>
+        <button class="btn btn-primary" onclick="addBackend()">＋ Add Backend</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeBackendsModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+<script src="/js/auth.js"></script>
+<script>
+  requireAuth(); renderTopbarUser();
+  let loadBalancers = [];
+
+  async function load() {
+    try {
+      loadBalancers = await apiGet('/loadbalancers');
+      await render(loadBalancers);
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('lb-table').style.display = '';
+      document.getElementById('lb-count').textContent = `Load Balancers (${loadBalancers.length})`;
+    } catch (e) { toast('Failed: ' + e.message, 'error'); }
+  }
+
+  async function render(data) {
+    const user = getUser();
+    const rows = await Promise.all(data.map(async lb => {
+      let backendSummary = '—';
+      try {
+        const backends = await apiGet(`/loadbalancers/${lb.id}/backends`);
+        const healthy = backends.filter(b => b.healthy).length;
+        backendSummary = `${healthy}/${backends.length} healthy`;
+      } catch (e) { /* ignore */ }
+      return `<tr>
+        <td><strong>${lb.name}</strong></td>
+        <td class="text-mono" style="font-size:12px">${lb.virtualIp || '—'}</td>
+        <td style="font-size:12px">${(lb.algorithm || '').replace(/_/g,' ')}</td>
+        <td>${statusBadge(lb.status)}</td>
+        <td style="font-size:12px;color:var(--text-muted)">${lb.healthCheckPath || '—'} (every ${lb.healthCheckIntervalSeconds}s)</td>
+        <td>${backendSummary}</td>
+        <td>
+          <button class="btn btn-sm btn-secondary" onclick="edit(${lb.id})">✏ Edit</button>
+          <button class="btn btn-sm btn-secondary" onclick="openBackends(${lb.id}, '${lb.name.replace(/'/g, "&#39;")}')" style="margin-left:4px">⚖️ Backends</button>
+          ${user.role === 'ADMIN' ? `<button class="btn btn-sm btn-danger" onclick="del(${lb.id})" style="margin-left:4px">🗑</button>` : ''}
+        </td>
+      </tr>`;
+    }));
+    document.getElementById('lb-body').innerHTML = rows.join('');
+  }
+
+  function openAdd() {
+    document.getElementById('modal-title').textContent = 'Add Load Balancer';
+    document.getElementById('lb-id').value = '';
+    ['name','vip','healthpath','notes'].forEach(f => document.getElementById('f-'+f).value = '');
+    document.getElementById('f-algorithm').value = 'ROUND_ROBIN';
+    document.getElementById('f-status').value = 'ACTIVE';
+    document.getElementById('f-interval').value = 30;
+    document.getElementById('modal').classList.add('open');
+  }
+  function edit(id) {
+    const lb = loadBalancers.find(x => x.id === id); if (!lb) return;
+    document.getElementById('modal-title').textContent = 'Edit Load Balancer';
+    document.getElementById('lb-id').value = lb.id;
+    document.getElementById('f-name').value = lb.name;
+    document.getElementById('f-vip').value = lb.virtualIp || '';
+    document.getElementById('f-algorithm').value = lb.algorithm;
+    document.getElementById('f-status').value = lb.status;
+    document.getElementById('f-healthpath').value = lb.healthCheckPath || '';
+    document.getElementById('f-interval').value = lb.healthCheckIntervalSeconds || 30;
+    document.getElementById('f-notes').value = lb.notes || '';
+    document.getElementById('modal').classList.add('open');
+  }
+  async function save() {
+    const id = document.getElementById('lb-id').value;
+    const body = {
+      name: document.getElementById('f-name').value,
+      virtualIp: document.getElementById('f-vip').value,
+      algorithm: document.getElementById('f-algorithm').value,
+      status: document.getElementById('f-status').value,
+      healthCheckPath: document.getElementById('f-healthpath').value,
+      healthCheckIntervalSeconds: parseInt(document.getElementById('f-interval').value) || 30,
+      notes: document.getElementById('f-notes').value
+    };
+    try {
+      if (id) await apiPut('/loadbalancers/' + id, body);
+      else await apiPost('/loadbalancers', body);
+      toast(id ? 'Updated!' : 'Added!', 'success');
+      closeModal(); load();
+    } catch (e) { toast('Error: ' + e.message, 'error'); }
+  }
+  async function del(id) {
+    if (!confirm('Delete this load balancer?')) return;
+    try { await apiDelete('/loadbalancers/' + id); toast('Deleted', 'success'); load(); }
+    catch (e) { toast('Error: ' + e.message, 'error'); }
+  }
+  function closeModal() { document.getElementById('modal').classList.remove('open'); }
+
+  // ── Backend pool ────────────────────────────────────────────────────
+  let currentLbId = null;
+  async function openBackends(lbId, lbName) {
+    currentLbId = lbId;
+    document.getElementById('backends-modal-title').textContent = `Backend Pool — ${lbName}`;
+    document.getElementById('backends-modal').classList.add('open');
+    await loadBackends();
+  }
+  function closeBackendsModal() {
+    document.getElementById('backends-modal').classList.remove('open');
+    load();
+  }
+  async function loadBackends() {
+    try {
+      const backends = await apiGet(`/loadbalancers/${currentLbId}/backends`);
+      const isViewer = getUser().role === 'VIEWER';
+      document.getElementById('backends-body').innerHTML = backends.length ? backends.map(b => `
+        <tr>
+          <td>${b.targetName}</td>
+          <td class="text-mono" style="font-size:11px">${b.targetIp || '—'}</td>
+          <td>${b.port}</td>
+          <td>${b.weight}</td>
+          <td>
+            ${isViewer
+              ? (b.healthy ? '<span class="badge badge-green">Healthy</span>' : '<span class="badge badge-red">Unhealthy</span>')
+              : `<select class="form-control" style="font-size:12px;padding:4px 8px" onchange="toggleHealth(${b.id}, this.value)">
+                   <option value="true" ${b.healthy ? 'selected' : ''}>Healthy</option>
+                   <option value="false" ${!b.healthy ? 'selected' : ''}>Unhealthy</option>
+                 </select>`}
+          </td>
+          <td>${isViewer ? '' : `<button class="btn btn-sm btn-danger" onclick="removeBackend(${b.id})">🗑</button>`}</td>
+        </tr>`).join('') : '<tr><td colspan="6" style="text-align:center;color:var(--text-muted)">No backends yet — add one below.</td></tr>';
+    } catch (e) { toast('Failed to load backends: ' + e.message, 'error'); }
+  }
+  async function addBackend() {
+    const targetName = document.getElementById('b-name').value.trim();
+    if (!targetName) { toast('Target name is required', 'error'); return; }
+    const body = {
+      targetName,
+      targetIp: document.getElementById('b-ip').value,
+      port: parseInt(document.getElementById('b-port').value) || 80,
+      weight: parseInt(document.getElementById('b-weight').value) || 1
+    };
+    try {
+      await apiPost(`/loadbalancers/${currentLbId}/backends`, body);
+      toast('Backend added!', 'success');
+      document.getElementById('b-name').value = '';
+      document.getElementById('b-ip').value = '';
+      await loadBackends();
+    } catch (e) { toast('Error: ' + e.message, 'error'); }
+  }
+  async function toggleHealth(backendId, value) {
+    try {
+      await apiPut(`/loadbalancer-backends/${backendId}/health`, { healthy: value === 'true' });
+      toast('Backend health updated', 'success');
+      await loadBackends();
+    } catch (e) { toast('Error: ' + e.message, 'error'); }
+  }
+  async function removeBackend(backendId) {
+    if (!confirm('Remove this backend?')) return;
+    try { await apiDelete('/loadbalancer-backends/' + backendId); toast('Removed', 'success'); await loadBackends(); }
+    catch (e) { toast('Error: ' + e.message, 'error'); }
+  }
+
+  if (getUser().role === 'VIEWER') {
+    document.getElementById('add-lb-btn').style.display = 'none';
+  }
+  load();
+</script>
+</body>
+</html>

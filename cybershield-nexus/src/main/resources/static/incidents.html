@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Security Incidents & SOC Response — CyberShield Nexus</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .workflow-strip {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      background: var(--bg-card2);
+      border-radius: var(--radius-sm);
+      margin-bottom: 16px;
+      border: 1px solid var(--border);
+    }
+    .step-pill {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 5px 12px;
+      border-radius: 20px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255,255,255,0.04);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+    .step-pill.active {
+      background: rgba(0, 212, 255, 0.15);
+      color: var(--accent);
+      border-color: var(--accent);
+      box-shadow: 0 0 10px rgba(0, 212, 255, 0.2);
+    }
+    .step-arrow { color: var(--text-muted); font-size: 14px; }
+  </style>
+</head>
+<body>
+<aside class="sidebar">
+  <div class="sidebar-brand"><h1>CyberShield Nexus</h1><span>NEDI AI Cyber Command</span></div>
+  <nav class="sidebar-nav">
+    <div class="nav-section-label">Operations</div>
+    <a href="/dashboard.html" class="nav-item"><span class="icon">📊</span> SOC Dashboard</a>
+    <div class="nav-section-label">Managed Assets</div>
+    <a href="/servers.html" class="nav-item"><span class="icon">🖥️</span> Servers</a>
+    <a href="/firewalls.html" class="nav-item"><span class="icon">🔥</span> Firewalls</a>
+    <a href="/loadbalancers.html" class="nav-item"><span class="icon">⚖️</span> Load Balancers</a>
+    <a href="/licenses.html" class="nav-item"><span class="icon">📋</span> Licenses</a>
+    <a href="/hardware.html" class="nav-item"><span class="icon">⚙️</span> Hardware</a>
+    <div class="nav-section-label">Cyber Defense</div>
+    <a href="/incidents.html" class="nav-item active"><span class="icon">🚨</span> Incidents</a>
+    <a href="/risk.html" class="nav-item"><span class="icon">📈</span> Risk & Attack Path</a>
+    <a href="/audit-log.html" class="nav-item"><span class="icon">📜</span> Audit Log</a>
+    <a href="/users.html" class="nav-item"><span class="icon">👤</span> Users & Roles</a>
+    <div class="nav-section-label">Tools</div>
+    <a href="/phishing-detector.html" class="nav-item"><span class="icon">🎣</span> Phishing Detector</a>
+  </nav>
+  <div class="sidebar-footer"><button onclick="logout()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:12px;">⏏ Sign Out</button></div>
+</aside>
+
+<header class="topbar">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <span class="topbar-title">SOC Incident Response Management</span>
+    <span class="spotlight-badge" style="background:rgba(239,68,68,0.15);border-color:rgba(239,68,68,0.4);color:var(--accent-red);">NIST SP 800-61 Rev. 3</span>
+  </div>
+  <div class="topbar-right">
+    <div class="topbar-user">
+      <div class="user-avatar" id="topbar-avatar">A</div>
+      <div><div style="font-weight:600;font-size:13px" id="topbar-username"></div>
+      <div style="font-size:10px;color:var(--text-muted)" id="topbar-role"></div></div>
+    </div>
+  </div>
+</header>
+
+<main class="main-content">
+  <!-- Workflow Header -->
+  <div class="workflow-strip">
+    <span style="font-size:11px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;">SOC Lifecycle:</span>
+    <span class="step-pill">1. DETECT (Automated Risk Trigger)</span>
+    <span class="step-arrow">→</span>
+    <span class="step-pill">2. INVESTIGATE (Triage & ATT&CK Mapping)</span>
+    <span class="step-arrow">→</span>
+    <span class="step-pill">3. CONTAIN (Isolate Ingress / ACL)</span>
+    <span class="step-arrow">→</span>
+    <span class="step-pill">4. RESOLVE (Restore Baseline)</span>
+    <span class="step-arrow">→</span>
+    <span class="step-pill active">5. POST-INCIDENT REPORT</span>
+  </div>
+
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h2 style="font-size:20px;font-weight:700">Active Security Incidents</h2>
+      <p style="color:var(--text-muted);font-size:13px;margin-top:2px">Triaged alarms triggered by risk engine thresholds, authentication brute-force, or lateral movement anomalies.</p>
+    </div>
+    <div class="flex gap-2">
+      <button class="btn btn-secondary" onclick="load('open')" id="filter-open">🔴 Open</button>
+      <button class="btn btn-secondary" onclick="load('investigating')" id="filter-inv">🔍 Investigating</button>
+      <button class="btn btn-secondary" onclick="load('contained')" id="filter-cont">🛡️ Contained</button>
+      <button class="btn btn-secondary" onclick="load('all')" id="filter-all">📋 All</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title" id="inc-count">Security Incidents</span>
+      <span style="font-size:11px;color:var(--text-muted);">Real-time database persistence</span>
+    </div>
+    <div class="table-wrapper">
+      <div id="loading"><div class="spinner"></div></div>
+      <table id="inc-table" style="display:none">
+        <thead><tr>
+          <th>Severity</th><th>Incident Title</th><th>Status</th><th>Risk Score</th>
+          <th>Affected Entity</th><th>Assigned Responder</th><th>Created</th><th>SOC Actions</th>
+        </tr></thead>
+        <tbody id="inc-body"></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<!-- Incident Detail & Response Modal -->
+<div class="modal-overlay" id="detail-modal">
+  <div class="modal" style="max-width:700px">
+    <div class="modal-header">
+      <div>
+        <span class="modal-title" id="modal-incident-title">Incident Response Console</span>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px;" id="modal-incident-id">Ticket #0</div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="detail-body">
+      <!-- Injected by JS -->
+    </div>
+    <div class="modal-footer" style="flex-wrap:wrap;gap:8px;justify-content:space-between;">
+      <div class="flex gap-2">
+        <button class="btn btn-secondary" onclick="closeModal()">Close</button>
+        <button class="btn btn-secondary" onclick="viewLiveReport(currentId)" style="color:var(--accent);border-color:var(--accent);">📄 Generate Live Report</button>
+        <button class="btn btn-secondary" onclick="downloadPdfReport(currentId)" style="color:var(--accent);border-color:var(--accent);">⬇️ Download PDF</button>
+      </div>
+      <div class="flex gap-2" id="modal-action-buttons">
+        <button class="btn btn-secondary" id="btn-investigate" onclick="markAction('investigate')">🔍 Start Investigation</button>
+        <button class="btn btn-warning" id="btn-contain" onclick="promptContainment(currentId)" style="background:var(--accent-orange);color:#fff;border:none;">🛡️ Contain Service</button>
+        <button class="btn btn-success" id="btn-resolve" onclick="promptResolution(currentId)">✅ Resolve Incident</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+<script src="/js/auth.js"></script>
+<script>
+  requireAuth(); renderTopbarUser();
+  let incidents = [];
+  let currentId = null;
+
+  function customStatusBadge(status) {
+    if (status === 'OPEN') return `<span class="badge badge-red"><span class="pulse-dot pulse-red"></span> OPEN</span>`;
+    if (status === 'INVESTIGATING') return `<span class="badge badge-orange"><span class="pulse-dot pulse-yellow"></span> INVESTIGATING</span>`;
+    if (status === 'CONTAINED') return `<span class="badge badge-yellow"><span class="pulse-dot pulse-yellow"></span> CONTAINED</span>`;
+    if (status === 'RESOLVED') return `<span class="badge badge-green"><span class="pulse-dot pulse-green"></span> RESOLVED</span>`;
+    return `<span class="badge badge-gray">${status}</span>`;
+  }
+
+  async function load(mode = 'all') {
+    try {
+      document.getElementById('loading').style.display = '';
+      document.getElementById('inc-table').style.display = 'none';
+
+      let all = await apiGet('/incidents');
+      if (!Array.isArray(all)) all = [all];
+
+      if (mode === 'open') {
+        incidents = all.filter(i => i.status === 'OPEN');
+      } else if (mode === 'investigating') {
+        incidents = all.filter(i => i.status === 'INVESTIGATING');
+      } else if (mode === 'contained') {
+        incidents = all.filter(i => i.status === 'CONTAINED');
+      } else {
+        incidents = all;
+      }
+
+      render();
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('inc-table').style.display = '';
+      document.getElementById('inc-count').textContent = `Security Incidents (${incidents.length})`;
+    } catch(e) { toast('Failed: ' + e.message, 'error'); }
+  }
+
+  function render() {
+    document.getElementById('inc-body').innerHTML = incidents.map(i => `
+      <tr>
+        <td>${severityBadge(i.severity)}</td>
+        <td style="max-width:260px;">
+          <div style="font-weight:600;font-size:12px;color:var(--text-primary);">${i.title}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">Type: ${i.relatedAssetType || 'GENERIC'}</div>
+        </td>
+        <td>${customStatusBadge(i.status)}</td>
+        <td>${riskBar(i.riskScore || 0)}</td>
+        <td class="text-mono" style="font-size:11px">${i.affectedUsername || ('Asset #' + i.relatedAssetId)}</td>
+        <td style="font-size:12px;color:var(--text-secondary);">${i.assignedTo || i.containedBy || i.resolvedBy || 'Unassigned'}</td>
+        <td style="font-size:11px;color:var(--text-muted)">${formatDateTime(i.createdAt)}</td>
+        <td>
+          <div class="flex gap-2">
+            <button class="btn btn-sm btn-secondary" onclick="showDetail(${i.id})">Inspect</button>
+            <button class="btn btn-sm btn-secondary" onclick="viewLiveReport(${i.id})" title="Generate Live SOC Report">📄 Report</button>
+            <button class="btn btn-sm btn-secondary" onclick="downloadPdfReport(${i.id})" title="Download PDF Report">⬇️ PDF</button>
+          </div>
+        </td>
+      </tr>`).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--accent-green);padding:30px">✅ No incidents match the selected filter.</td></tr>';
+  }
+
+  function showDetail(id) {
+    const i = incidents.find(x => x.id === id);
+    if (!i) return;
+    currentId = id;
+    document.getElementById('modal-incident-title').textContent = i.title;
+    document.getElementById('modal-incident-id').textContent = `Incident Ticket #${i.id} · Created ${formatDateTime(i.createdAt)}`;
+
+    document.getElementById('detail-body').innerHTML = `
+      <div style="display:grid;gap:14px">
+        <div class="flex items-center gap-2">
+          ${severityBadge(i.severity)}
+          ${customStatusBadge(i.status)}
+          <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-muted);margin-left:auto;">Score: ${i.riskScore}/100</span>
+        </div>
+
+        <div style="background:var(--bg-card2);padding:12px;border-radius:8px;border:1px solid var(--border);">
+          <strong style="color:var(--accent);font-size:11px;text-transform:uppercase;">Threat Overview</strong>
+          <div style="margin-top:4px;font-size:12px;color:var(--text-primary);line-height:1.5;">${i.description || 'No description provided.'}</div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div style="background:var(--bg-card2);padding:10px 14px;border-radius:8px;border:1px solid var(--border);">
+            <strong style="color:var(--text-muted);font-size:11px;">AFFECTED ASSET / USER</strong>
+            <div class="text-mono" style="margin-top:4px;font-size:13px;color:var(--accent);">${i.affectedUsername ? 'User: ' + i.affectedUsername : 'Asset ID: #' + i.relatedAssetId}</div>
+          </div>
+          <div style="background:var(--bg-card2);padding:10px 14px;border-radius:8px;border:1px solid var(--border);">
+            <strong style="color:var(--text-muted);font-size:11px;">ATTACKER SOURCE IP</strong>
+            <div class="text-mono" style="margin-top:4px;font-size:13px;color:var(--accent-red);">${i.sourceIp || '10.0.0.99 (Simulated External)'}</div>
+          </div>
+        </div>
+
+        ${i.attackPath ? `
+          <div style="background:var(--bg-card2);padding:12px;border-radius:8px;border:1px solid var(--border);">
+            <strong style="color:var(--accent-red);font-size:11px;">BFS LATERAL TRAVERSAL PATH</strong>
+            <div class="attack-path" style="margin-top:8px">
+              ${i.attackPath.split(' → ').map((node, idx, arr) => `
+                <span class="path-node ${idx === 0 ? 'compromised' : idx === arr.length-1 ? 'target' : ''}">${node}</span>
+                ${idx < arr.length-1 ? '<span class="path-arrow">→</span>' : ''}
+              `).join('')}
+            </div>
+          </div>` : ''}
+
+        <!-- Remediation Notes & Audit Log Field -->
+        <div style="background:var(--bg-card2);padding:12px;border-radius:8px;border:1px solid var(--border);">
+          <strong style="color:var(--accent-green);font-size:11px;text-transform:uppercase;">Remediation Log & Forensic Notes</strong>
+          <div style="margin-top:6px;font-size:12px;color:var(--text-secondary);min-height:30px;line-height:1.4;" id="current-remediation-notes">
+            ${i.remediationNotes || 'No remediation notes recorded yet.'}
+          </div>
+          <div style="margin-top:10px;display:flex;gap:8px;">
+            <input class="form-control" id="input-new-note" placeholder="Add forensic note or action update..." style="font-size:12px;padding:6px 12px;height:34px;">
+            <button class="btn btn-sm btn-secondary" onclick="appendNote(${i.id})">Save Note</button>
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);border-top:1px solid var(--border);padding-top:8px;">
+          <span>Contained By: ${i.containedBy ? i.containedBy + ' (' + formatDateTime(i.containedAt) + ')' : 'Pending'}</span>
+          <span>Resolved By: ${i.resolvedBy ? i.resolvedBy + ' (' + formatDateTime(i.resolvedAt) + ')' : 'Unresolved'}</span>
+        </div>
+      </div>`;
+
+    document.getElementById('detail-modal').classList.add('open');
+  }
+
+  async function appendNote(id) {
+    const input = document.getElementById('input-new-note');
+    const val = input.value.trim();
+    if (!val) return;
+    try {
+      const i = incidents.find(x => x.id === id);
+      const existing = i && i.remediationNotes ? i.remediationNotes + ' | ' : '';
+      const updatedNotes = existing + '[' + new Date().toLocaleTimeString() + '] ' + val;
+      await apiPut(`/incidents/${id}/notes`, { notes: updatedNotes });
+      toast('Remediation note saved', 'success');
+      input.value = '';
+      if (i) i.remediationNotes = updatedNotes;
+      document.getElementById('current-remediation-notes').textContent = updatedNotes;
+    } catch(e) { toast('Error saving note: ' + e.message, 'error'); }
+  }
+
+  async function markAction(action) {
+    if (!currentId) return;
+    try {
+      if (action === 'investigate') {
+        await apiPut(`/incidents/${currentId}/investigate`, { assignedTo: localStorage.getItem('username') || 'analyst' });
+        toast('Incident marked INVESTIGATING', 'info');
+      }
+      closeModal();
+      load();
+    } catch(e) { toast('Error: ' + e.message, 'error'); }
+  }
+
+  async function promptContainment(id) {
+    const note = prompt('Enter containment mitigation action (e.g. Severed DMZ lateral pivot; locked compromised account):', 'Isolate DMZ path and lock compromised viewer account');
+    if (!note) return;
+    try {
+      await apiPut(`/incidents/${id}/contain`, { notes: note });
+      toast(`Incident #${id} successfully CONTAINED!`, 'success');
+      closeModal();
+      load();
+    } catch(e) { toast('Failed to contain: ' + e.message, 'error'); }
+  }
+
+  async function promptResolution(id) {
+    const note = prompt('Enter resolution summary & post-incident verification note:', 'Applied emergency patches, rotated credentials, and restored nominal telemetry.');
+    if (!note) return;
+    try {
+      await apiPut(`/incidents/${id}/resolve`, { notes: note });
+      toast(`Incident #${id} marked RESOLVED! Posture restored.`, 'success');
+      closeModal();
+      load();
+    } catch(e) { toast('Failed to resolve: ' + e.message, 'error'); }
+  }
+
+  function viewLiveReport(id) {
+    const token = localStorage.getItem('token') || '';
+    window.open(`/api/reports/incident/${id}/html?token=${encodeURIComponent(token)}`, '_blank');
+  }
+
+  // ENHANCEMENT (Part 1, #7): PDF report download
+  function downloadPdfReport(id) {
+    window.open(`/api/reports/incident/${id}/pdf?token=${encodeURIComponent(localStorage.getItem('token') || '')}`, '_blank');
+  }
+
+  function closeModal() { document.getElementById('detail-modal').classList.remove('open'); }
+  load();
+</script>
+</body>
+</html>
+
